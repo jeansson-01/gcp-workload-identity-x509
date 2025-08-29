@@ -2,7 +2,7 @@
 # Add your custom values to the following required variables
 export BILLING_ACCOUNT_ID="" # Only required if crating a new project
 export PROJECT_ID="my-wif-demo-project"
-export PROJECT_NUMBER=$(gcloud projects describe $(gcloud config get-value core/project) --format=value\(projectNumber\))
+export PROJECT_NUMBER=$(gcloud projects describe ${PROJECT_ID} --format=value\(projectNumber\))
 export ZONE="us-central1-f"
 export VPC="my-local-vpc"
 export SUBNET="my-central1-subnet"
@@ -13,6 +13,7 @@ export WORKLOAD_PROVIDER="local-demo-ca"
 export ROOT_CA_NAME="root"
 export SUB_CA_NAME="int"
 export CLIENT_NAME="my-awesome-app"
+export CURRENT_USER=$(gcloud auth list --filter=status:ACTIVE --format="value(account)")
 
 # Validate Project
 echo -e "Validating Project ${PROJECT_ID}...\n"
@@ -23,12 +24,24 @@ if ! gcloud projects describe ${PROJECT_ID} >/dev/null 2>&1; then
   gcloud billing projects link ${PROJECT_ID} --billing-account=${BILLING_ACCOUNT_ID}
 fi
 
+# Ensure Compute API is enabled
+gcloud services enable compute.googleapis.com --project=${PROJECT_ID}
+
+# Enable the Identity-Aware Proxy API
+echo -e "Enabling the IAP API...\n"
+gcloud services enable iap.googleapis.com --project=${PROJECT_ID}
+
 # Validate VPC
 echo -e "Validating VPC ${VPC}...\n"
 if ! gcloud compute networks describe ${VPC} --project=${PROJECT_ID} >/dev/null 2>&1; then
   echo -e "VPC ${VPC} not found. Creating it now..."
   gcloud compute networks create ${VPC} --project=${PROJECT_ID} --subnet-mode=custom
 fi
+
+# Adding firewall rule for IAP access to VM
+echo -e "Adding firewall rule for IAP SSH access to VM...\n"
+gcloud compute firewall-rules create allow-ssh-form-iap --network ${VPC} --direction=INGRESS --allow tcp:22 --source-ranges 35.235.240.0/20 --project=${PROJECT_ID}
+
 
 # Validate Subnet
 echo -e "Validating Subnet ${SUBNET}...\n"
@@ -40,7 +53,13 @@ fi
 
 # Create test VM to mimic remote workload
 echo -e "Creating VM ${VM_NAME} running without a service account to mimic a remote workload...\n"
-gcloud compute instances create ${VM_NAME} --project=${PROJECT_ID} --zone=${ZONE} --machine-type=e2-small --network-interface=stack-type=IPV4_ONLY,subnet=${SUBNET},no-address --metadata=enable-osconfig=TRUE,enable-oslogin=true --maintenance-policy=MIGRATE --provisioning-model=STANDARD --no-service-account --no-scopes --create-disk=auto-delete=yes,boot=yes,device-name=wlif-x509-demo,image=projects/debian-cloud/global/images/debian-12-bookworm-v20250812,mode=rw,size=10,type=pd-balanced --no-shielded-secure-boot --shielded-vtpm --shielded-integrity-monitoring
+gcloud compute instances create ${VM_NAME} --project=${PROJECT_ID} --zone=${ZONE} --machine-type=e2-small --network-interface=stack-type=IPV4_ONLY,subnet=${SUBNET},no-address --metadata=enable-osconfig=TRUE,enable-oslogin=true --maintenance-policy=MIGRATE --provisioning-model=STANDARD --no-service-account --no-scopes --create-disk=auto-delete=yes,boot=yes,device-name=wlif-x509-demo,image=projects/debian-cloud/global/images/debian-12-bookworm-v20250812,mode=rw,size=10,type=pd-balanced --shielded-secure-boot --shielded-vtpm --shielded-integrity-monitoring
+
+# Grant IAP access to VM
+echo -e "Granting IAP access to user...\n"
+gcloud compute instances add-iam-policy-binding ${VM_NAME} --zone=${ZONE} --project=${PROJECT_ID} --member=user:${CURRENT_USER} --role=roles/compute.instanceAdmin.v1
+gcloud projects add-iam-policy-binding ${PROJECT_ID} --member=user:${CURRENT_USER} --role=roles/iap.tunnelResourceAccessor
+
 
 # Give the VM time to boot
 echo -e "\nWaiting for VM to boot...\n"
