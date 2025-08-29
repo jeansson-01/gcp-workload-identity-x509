@@ -1,0 +1,14 @@
+{
+  "universe_domain": "googleapis.com",
+  "type": "external_account",
+  "audience": "//iam.googleapis.com/projects/347864090333/locations/global/workloadIdentityPools/x509-pool-082725-7285/providers/local-demo-ca",
+  "subject_token_type": "urn:ietf:params:oauth:token-type:mtls",
+  "token_url": "https://sts.mtls.googleapis.com/v1/token",
+  "credential_source": {
+    "certificate": {
+      "certificate_config_location": "cert-config.json",
+      "trust_chain_path": "int.cert"
+    }
+  },
+  "token_info_url": "https://sts.mtls.googleapis.com/v1/introspect"
+}
