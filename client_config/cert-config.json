@@ -1,8 +1,0 @@
-{
-  "cert_configs": {
-    "workload": {
-      "cert_path": "my-awesome-app.cert",
-      "key_path": "my-awesome-app.key"
-    }
-  }
-}
