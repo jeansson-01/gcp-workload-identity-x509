@@ -2,7 +2,7 @@
 # Add your custom values to the following required variables
 export BILLING_ACCOUNT_ID="" # Only required if crating a new project
 export PROJECT_ID="my-wif-demo-project"
-export PROJECT_NUMBER=$(gcloud projects describe ${PROJECT_ID} --format=value\(projectNumber\))
+export PROJECT_NUMBER=$(gcloud projects describe ${PROJECT_ID} --format="value(projectNumber)")
 export ZONE="us-central1-f"
 export VPC="my-local-vpc"
 export SUBNET="my-central1-subnet"
